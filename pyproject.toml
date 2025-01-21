@@ -1,0 +1,23 @@
+[project]
+name = "nesteddict"
+version = "0.1.0"
+description = "A pure Python nested dict container"
+authors = [
+    { name = "Roy Kid", email = "lijichen365@gmail.com" }
+]
+license = { file = "LICENSE.txt" }
+readme = "README.md"
+keywords = ["nested", "dict"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires-python = ">=3.10"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
