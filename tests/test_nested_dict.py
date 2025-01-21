@@ -8,7 +8,7 @@ class TestNestedDict:
     @pytest.fixture(scope="function", name="nd")
     def test_init(self):
         return NestedDict(
-            {"a1": 1, "a2": {"b1": 2, "b2": {"c1": 3, "c2": {"d1": 4, "d2": 5}}}}
+            {"a1": 1, "a2": {"b1": 2, "b2": {"c1": 3, "c2": {"d1": 4, "d2": 5}}}, 3: 'a'}
         )
     
     def test_init_failed(self):
@@ -18,9 +18,9 @@ class TestNestedDict:
 
     def test_traverse_failed(self, nd):
         
+        assert nd._traverse(3)
         with pytest.raises(KeyError):
-            nd._traverse(1)
-            nd._traverse(tuple(1, 2, 3))
+            nd._traverse((1, 2, 3))
 
     def test_delitem(self, nd):
 
@@ -31,7 +31,7 @@ class TestNestedDict:
         assert "d2" not in nd[["a2", "b2", "c2"]]
 
         with pytest.raises(KeyError):
-            del nd["a2", "b2"]
+            del nd["a2", "b2"]  # only list but tuple
 
     def test_eq(self):
         assert NestedDict({'a': 1}) == {'a': 1}
@@ -64,8 +64,8 @@ class TestNestedDict:
         assert nd[["a3", "b1"]] == 50
         assert nd[["a3", "b2", "c1"]] == 60
 
-        with pytest.raises(KeyError):
-            nd["a2", "b1"] = 1
+        nd["tuple", "as", "key"] = 70
+        assert nd[("tuple", "as", "key")] == 70
 
     def test_str(self):
         nd = NestedDict({"a": {"b": 1}})
@@ -83,8 +83,8 @@ class TestNestedDict:
     def test_flatten(self, nd):
 
         fd = nd.flatten()
-        assert "a1" in fd
-        assert "a2.b1" in fd
+        assert ("a1", ) in fd
+        assert ("a2", "b1") in fd
 
     def test_get(self, nd):
 

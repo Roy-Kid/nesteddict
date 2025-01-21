@@ -1,6 +1,7 @@
 import operator
 from functools import reduce
 from typing import MutableMapping, Any, Iterator
+from collections.abc import Iterable
 
 NestedKey = str | list[str]  # type_check_only
 
@@ -62,7 +63,7 @@ class NestedDict(NestedDictBase):
             construct (bool, optional): if create new container . Defaults to False.
 
         Raises:
-            NestedKeyError: nested_key must be a str or list, not {type(nested_key)}
+            KeyError: if nested_key is not found.
 
         Returns:
             Any: The value at the end of the nested path.
@@ -70,12 +71,9 @@ class NestedDict(NestedDictBase):
         if construct:
             self._construct(self._data, nested_key)
 
-        if isinstance(nested_key, str):
-            return self._data[nested_key]
-        elif isinstance(nested_key, list):
+        if isinstance(nested_key, list):
             return reduce(operator.getitem, nested_key, self._data)
-        else:
-            raise KeyError(f"nested_key must be a str or list, not {type(nested_key)}")
+        return self._data[nested_key]
 
     def __bool__(self) -> bool:
         return bool(self._data)
@@ -83,7 +81,7 @@ class NestedDict(NestedDictBase):
     def __eq__(self, other: Any) -> bool:
         return self._data == other
 
-    def flatten(self, sep: str = ".") -> dict:
+    def flatten(self) -> dict:
         """get a python dict with a flat structure. The key is the nested key joined by the separator.
 
         Args:
@@ -94,35 +92,40 @@ class NestedDict(NestedDictBase):
 
         Examples:
             >>> NestedDict({'a': {'b': {'c': 1}}}).flatten()
-            {'a.b.c': 1}
-            >>> NestedDict({'a': {'b': {'c': 1}}}).flatten(sep="/")
-            {'a/b/c': 1}
+            {('a', 'b', 'c'): 1}
         """
 
-        def _flatten(data, parent_key="", sep="."):
+        def _flatten(data, parent_key: list[str]=[]):
             items = []
             for k, v in data.items():
-                new_key = parent_key + sep + k if parent_key else k
+                new_key = [*parent_key, k]
                 if isinstance(v, MutableMapping):
-                    items.extend(_flatten(v, new_key, sep))
+                    items.extend(_flatten(v, new_key))
                 else:
-                    items.append((new_key, v))
+                    items.append((tuple(new_key), v))
             return items
 
-        return dict(_flatten(self._data, "", sep))
+        flat_dict = dict(_flatten(self._data, []))
+        return flat_dict
 
     def __getitem__(self, nested_key: NestedKey) -> Any:
         item = self._traverse(nested_key)
         return item
 
     def __delitem__(self, nested_key: NestedKey) -> None:
-        if isinstance(nested_key, str):
-            del self._data[nested_key]
-        elif isinstance(nested_key, list):
+        if isinstance(nested_key, list):
             parent = self._traverse(nested_key[:-1])
             del parent[nested_key[-1]]
         else:
-            raise KeyError(f"nested_key must be a str or list, not {type(nested_key)}")
+            del self._data[nested_key]
+
+    def __setitem__(self, nested_key: NestedKey, value: Any) -> None:
+        if isinstance(nested_key, list):
+            dest_key = nested_key[-1]
+            parent = self._traverse(nested_key[:-1], construct=True)
+            parent[dest_key] = value
+        else:
+            self._data[nested_key] = value
 
     def get(self, nested_path: str, sep: str = "."):
         """get a value from a nested path in a dictionary.
@@ -154,16 +157,6 @@ class NestedDict(NestedDictBase):
 
     def __ne__(self, other: Any) -> bool:
         return self._data != other
-
-    def __setitem__(self, nested_key: NestedKey, value: Any) -> None:
-        if isinstance(nested_key, str):
-            self._data[nested_key] = value
-        elif isinstance(nested_key, list):
-            dest_key = nested_key[-1]
-            parent = self._traverse(nested_key[:-1], construct=True)
-            parent[dest_key] = value
-        else:
-            raise KeyError(f"nested_key must be a str or list, not {type(nested_key)}")
 
     def set(self, nested_path: str, value: Any, sep: str = ".") -> None:
         """set a value at a nested path in a dictionary.
