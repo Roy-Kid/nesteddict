@@ -4,10 +4,7 @@ from typing import MutableMapping, Any, Iterator
 
 NestedKey = str | list[str]  # type_check_only
 
-#User Exceptions
-class NestedKeyError(Exception): pass #currently only used to track NestedKey errors durning _construct_path
-
-class NestedDictBase(MutableMapping):
+class NestedDictBase(dict):
     ...
 
 class NestedDict(NestedDictBase):
@@ -39,8 +36,8 @@ class NestedDict(NestedDictBase):
         
         self._data = source or {}
         
-    @staticmethod
-    def _construct(data, nested_key: NestedKey, factory: type = dict):
+    @classmethod
+    def _construct(cls, data, nested_key: NestedKey):
         """ _construct_path is a recursive function that constructs a nested path in a dictionary.
 
         Args:
@@ -53,8 +50,8 @@ class NestedDict(NestedDictBase):
         if nested_key:
             key = nested_key[0]
             if key not in data:
-                data[key] = factory()
-            return NestedDict._construct(data[key], nested_key[1:], factory)
+                data[key] = cls()
+            return NestedDict._construct(data[key], nested_key[1:])
         
     def _traverse(self, nested_key: NestedKey, construct: bool = False) -> Any:
         """Traverses a nested path in a dictionary.
@@ -77,7 +74,7 @@ class NestedDict(NestedDictBase):
         elif isinstance(nested_key, list):
             return reduce(operator.getitem, nested_key, self._data)
         else:
-            raise NestedKeyError(f"nested_key must be a str or list, not {type(nested_key)}")
+            raise KeyError(f"nested_key must be a str or list, not {type(nested_key)}")
         
     def __bool__(self) -> bool:
         return bool(self._data)
@@ -111,10 +108,6 @@ class NestedDict(NestedDictBase):
             return items
         
         return dict(_flatten(self._data, "", sep))
-    
-    @classmethod
-    def _nestize(cls, ):
-        ...
 
     def __getitem__(self, nested_key: NestedKey) -> Any:
         item = self._traverse(nested_key)
@@ -127,7 +120,7 @@ class NestedDict(NestedDictBase):
             parent = self._traverse(nested_key[:-1])
             del parent[nested_key[-1]]
         else:
-            raise NestedKeyError(f"nested_key must be a str or list, not {type(nested_key)}")
+            raise KeyError(f"nested_key must be a str or list, not {type(nested_key)}")
     
     def get(self, nested_path: str, sep: str = '.'):
         """ get a value from a nested path in a dictionary.
@@ -168,7 +161,7 @@ class NestedDict(NestedDictBase):
             parent = self._traverse(nested_key[:-1], construct=True)
             parent[dest_key] = value
         else:
-            raise NestedKeyError(f"nested_key must be a str or list, not {type(nested_key)}")
+            raise KeyError(f"nested_key must be a str or list, not {type(nested_key)}")
         
     def set(self, nested_path: str, value: Any, sep: str = '.') -> None:
         """ set a value at a nested path in a dictionary.
@@ -191,10 +184,10 @@ class NestedDict(NestedDictBase):
         self._traverse(path[:-1], construct=True)[path[-1]] = value
 
     def __str__(self) -> str:
-        return f"{__class__.__name__}({str(self._data)})"
+        return f"<{__class__.__name__}({str(self._data)})>"
     
     def __repr__(self) -> str:
-        return f"{__class__.__name__}({repr(self._data)})"
+        return f"<{__class__.__name__}({repr(self._data)})>"
     
     def clear(self) -> None:
         return self._data.clear()
@@ -210,9 +203,6 @@ class NestedDict(NestedDictBase):
     
     def items(self):
         return self._data.items()
-    
-    def to_json(self):
-        ...
 
     def update(self, other: dict):
         self._data.update(other)

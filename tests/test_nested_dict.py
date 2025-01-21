@@ -1,4 +1,5 @@
 import pytest
+
 from nesteddict import NestedDict
 
 
@@ -9,6 +10,36 @@ class TestNestedDict:
         return NestedDict(
             {"a1": 1, "a2": {"b1": 2, "b2": {"c1": 3, "c2": {"d1": 4, "d2": 5}}}}
         )
+    
+    def test_init_failed(self):
+        with pytest.raises(TypeError):
+            NestedDict(1)
+            NestedDict([1, 2, 3])
+
+    def test_traverse_failed(self, nd):
+        
+        with pytest.raises(KeyError):
+            nd._traverse(1)
+            nd._traverse(tuple(1, 2, 3))
+
+    def test_delitem(self, nd):
+
+        del nd["a1"]
+        assert "a1" not in nd
+
+        del nd[["a2", "b2", "c2", "d2"]]
+        assert "d2" not in nd[["a2", "b2", "c2"]]
+
+        with pytest.raises(KeyError):
+            del nd["a2", "b2"]
+
+    def test_eq(self):
+        assert NestedDict({'a': 1}) == {'a': 1}
+        assert NestedDict({'a': {'b': 2}}) != {'a': {'b': 1}}
+
+    def test_bool(self, nd):
+        assert nd
+        assert not NestedDict()
 
     def test_getitem(self, nd):
 
@@ -32,6 +63,22 @@ class TestNestedDict:
         nd[["a3", "b2", "c1"]] = 60
         assert nd[["a3", "b1"]] == 50
         assert nd[["a3", "b2", "c1"]] == 60
+
+        with pytest.raises(KeyError):
+            nd["a2", "b1"] = 1
+
+    def test_str(self):
+        nd = NestedDict({"a": {"b": 1}})
+        assert str(nd) == "<NestedDict({'a': {'b': 1}})>"
+
+    def test_repr(self):
+        nd = NestedDict({"a": {"b": 1}})
+        assert repr(nd) == "<NestedDict({'a': {'b': 1}})>"
+
+    def test_copy(self, nd):
+        
+        nd_copy = nd.copy()
+        assert nd == nd_copy
 
     def test_flatten(self, nd):
 
@@ -84,7 +131,7 @@ class TestNestedDict:
     def test_iter(self, nd):
 
         for key in nd:
-            assert key in nd
+            assert key in nd.keys()
 
     def test_update_dict(self, nd):
 
@@ -103,3 +150,47 @@ class TestNestedDict:
         assert new_nd[["a2", "b1"]] == 2
         assert new_nd[["a2", "b2", "c1"]] == 3
         assert new_nd[["a2", "b2", "c2", "d1"]] == 4
+
+class TestBenchmark:
+
+    @pytest.fixture(scope="function", name="nd")
+    def test_init(self):
+        return NestedDict(
+            {"a1": 1, "a2": {"b1": 2, "b2": {"c1": 3, "c2": {"d1": 4, "d2": 5}}}}
+        )
+
+    def test_get(self, nd, benchmark):
+
+        benchmark(nd.get, "a2.b2.c2.d2")
+
+    def test_getitem(self, nd, benchmark):
+        
+        benchmark(nd.__getitem__, ["a2", "b2", "c2"])
+
+    def test_set(self, nd, benchmark):
+
+        benchmark(nd.set, "a2.b2.c2.d3", 1)
+
+    def test_setitem(self, nd, benchmark):
+        
+        benchmark(nd.__setitem__, ["a2", "b2", "c2", "d3"], 1)
+
+
+try:
+    import tensordict
+except ImportError:
+    tensordict = None  # pragma: no cover
+
+class TestNestedDictCompatibility:
+
+    @pytest.fixture(scope="function", name="nd")
+    def test_init(self):
+        return NestedDict(
+            {"a1": 1, "a2": {"b1": 2, "b2": {"c1": 3, "c2": {"d1": 4, "d2": 5}}}}
+        )
+    
+    @pytest.mark.skipif(tensordict is None, reason="tensordict not installed")
+    def test_tensordict(self, nd):
+        td = tensordict.TensorDict(nd)
+        assert td["a1"] == 1
+        assert td["a2", "b1"] == 2
