@@ -1,4 +1,5 @@
 ![PyPI - License](https://img.shields.io/pypi/l/nesteddict)
+![Codecov](https://img.shields.io/codecov/c/github/Roy-Kid/nesteddict)
 
 # nesteddict
 
