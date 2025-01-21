@@ -95,7 +95,7 @@ class NestedDict(NestedDictBase):
             {('a', 'b', 'c'): 1}
         """
 
-        def _flatten(data, parent_key: list[str]=[]):
+        def _flatten(data, parent_key: list[str] = []):
             items = []
             for k, v in data.items():
                 new_key = [*parent_key, k]
@@ -149,6 +149,13 @@ class NestedDict(NestedDictBase):
         except KeyError:
             return None
 
+    def __contains__(self, nested_key: NestedKey) -> bool:
+        try:
+            self._traverse(nested_key)
+            return True
+        except KeyError:
+            return False
+
     def __iter__(self) -> Iterator:
         return iter(self._data)
 
@@ -179,10 +186,10 @@ class NestedDict(NestedDictBase):
         self._traverse(path[:-1], construct=True)[path[-1]] = value
 
     def __str__(self) -> str:
-        return f"<{__class__.__name__}({str(self._data)})>"
+        return f"<{str(self._data)}>"
 
     def __repr__(self) -> str:
-        return f"<{__class__.__name__}({repr(self._data)})>"
+        return f"<{repr(self._data)}>"
 
     def clear(self) -> None:
         return self._data.clear()

@@ -8,16 +8,20 @@ class TestNestedDict:
     @pytest.fixture(scope="function", name="nd")
     def test_init(self):
         return NestedDict(
-            {"a1": 1, "a2": {"b1": 2, "b2": {"c1": 3, "c2": {"d1": 4, "d2": 5}}}, 3: 'a'}
+            {
+                "a1": 1,
+                "a2": {"b1": 2, "b2": {"c1": 3, "c2": {"d1": 4, "d2": 5}}},
+                3: "a",
+            }
         )
-    
+
     def test_init_failed(self):
         with pytest.raises(TypeError):
             NestedDict(1)
             NestedDict([1, 2, 3])
 
     def test_traverse_failed(self, nd):
-        
+
         assert nd._traverse(3)
         with pytest.raises(KeyError):
             nd._traverse((1, 2, 3))
@@ -34,8 +38,8 @@ class TestNestedDict:
             del nd["a2", "b2"]  # only list but tuple
 
     def test_eq(self):
-        assert NestedDict({'a': 1}) == {'a': 1}
-        assert NestedDict({'a': {'b': 2}}) != {'a': {'b': 1}}
+        assert NestedDict({"a": 1}) == {"a": 1}
+        assert NestedDict({"a": {"b": 2}}) != {"a": {"b": 1}}
 
     def test_bool(self, nd):
         assert nd
@@ -67,23 +71,34 @@ class TestNestedDict:
         nd["tuple", "as", "key"] = 70
         assert nd[("tuple", "as", "key")] == 70
 
+    def test_construct(self):
+
+        nd = NestedDict(
+            {
+                "a": {"b": 1},
+            }
+        )
+        assert nd[["a", "b"]] == 1
+        nd[["a", "c"]] = 2
+        assert nd[["a", "c"]] == 2
+
     def test_str(self):
         nd = NestedDict({"a": {"b": 1}})
-        assert str(nd) == "<NestedDict({'a': {'b': 1}})>"
+        assert str(nd) == "<{'a': {'b': 1}}>"
 
     def test_repr(self):
         nd = NestedDict({"a": {"b": 1}})
-        assert repr(nd) == "<NestedDict({'a': {'b': 1}})>"
+        assert repr(nd) == "<{'a': {'b': 1}}>"
 
     def test_copy(self, nd):
-        
+
         nd_copy = nd.copy()
         assert nd == nd_copy
 
     def test_flatten(self, nd):
 
         fd = nd.flatten()
-        assert ("a1", ) in fd
+        assert ("a1",) in fd
         assert ("a2", "b1") in fd
 
     def test_get(self, nd):
@@ -151,6 +166,7 @@ class TestNestedDict:
         assert new_nd[["a2", "b2", "c1"]] == 3
         assert new_nd[["a2", "b2", "c2", "d1"]] == 4
 
+
 class TestBenchmark:
 
     @pytest.fixture(scope="function", name="nd")
@@ -164,7 +180,7 @@ class TestBenchmark:
         benchmark(nd.get, "a2.b2.c2.d2")
 
     def test_getitem(self, nd, benchmark):
-        
+
         benchmark(nd.__getitem__, ["a2", "b2", "c2"])
 
     def test_set(self, nd, benchmark):
@@ -172,7 +188,7 @@ class TestBenchmark:
         benchmark(nd.set, "a2.b2.c2.d3", 1)
 
     def test_setitem(self, nd, benchmark):
-        
+
         benchmark(nd.__setitem__, ["a2", "b2", "c2", "d3"], 1)
 
 
@@ -181,6 +197,7 @@ try:
 except ImportError:
     tensordict = None  # pragma: no cover
 
+
 class TestNestedDictCompatibility:
 
     @pytest.fixture(scope="function", name="nd")
@@ -188,7 +205,7 @@ class TestNestedDictCompatibility:
         return NestedDict(
             {"a1": 1, "a2": {"b1": 2, "b2": {"c1": 3, "c2": {"d1": 4, "d2": 5}}}}
         )
-    
+
     @pytest.mark.skipif(tensordict is None, reason="tensordict not installed")
     def test_tensordict(self, nd):
         td = tensordict.TensorDict(nd)
