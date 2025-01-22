@@ -1,5 +1,5 @@
 [project]
-name = "nesteddict"
+name = "nestict"
 version = "0.1.0"
 description = "A pure Python nested dict container"
 authors = [
