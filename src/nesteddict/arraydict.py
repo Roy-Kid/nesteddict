@@ -1,0 +1,116 @@
+from typing import MutableMapping, Any, Iterator, Union
+import numpy as np
+import numpy.typing as npt
+
+NestedKey = str | list[str]  # type_check_only
+
+from collections.abc import MutableMapping
+
+# check if all arrays have same length
+def _check_array_length(arrays: list[np.ndarray]) -> bool:
+    """Check if all arrays have the same length.
+
+    Args:
+        arrays (list[np.ndarray]): List of numpy arrays to check.
+
+    Returns:
+        bool: True if all arrays have the same length, False otherwise.
+    """
+    lengths = [len(arr) for arr in arrays]
+    return len(set(lengths)) < 2
+
+class ArrayDict(MutableMapping):
+    """A dictionary-like object that stores arrays."""
+
+    _data: dict[str, np.ndarray]
+
+    def __init__(self, source: dict = {}):
+        source = {k: np.atleast_1d(v) for k, v in source.items()}
+        if not _check_array_length(list(source.values())):
+            raise ValueError(
+                "All arrays must have the same length. Please check your input data."
+            )
+        super().__setattr__("_data", source)
+
+    def __getitem__(self, key: str | list[str] | slice) -> Union[np.ndarray, "ArrayDict"]:
+        if isinstance(key, str):
+            return self._data[key]
+        elif isinstance(key, list):
+            return ArrayDict({k: self._data[k] for k in key})
+        elif isinstance(key, (slice, int, np.ndarray)):
+            if isinstance(key, int):
+                key = slice(key, key + 1)
+            return ArrayDict({k: v[key] for k, v in self._data.items()})
+        raise KeyError(f"Key {key} not support in ArrayDict")
+
+    def __setitem__(
+        self, key: str | list[str], value: Union[np.ndarray, "ArrayDict"]
+    ) -> None:
+        if isinstance(key, str) and isinstance(value, (np.ndarray, list)):
+            self._data[key] = value
+        elif isinstance(key, list) and isinstance(value, ArrayDict):
+            for k in key:
+                self._data[k] = value[k]
+        elif isinstance(key, (slice, int)) and isinstance(value, ArrayDict):
+            for k in self._data.keys():
+                self._data[k][key] = value[k]
+        else:
+            raise KeyError(f"set type {type(value)} to '{key}' not support in ArrayDict")
+
+    def __delitem__(self, key: str) -> None:
+        del self._data[key]
+
+    def __iter__(self) -> Iterator:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def keys(self):
+        return self._data.keys()
+
+    def values(self):
+        return self._data.values()
+
+    def items(self):
+        return self._data.items()
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, ArrayDict):
+            value = other._data
+        elif isinstance(other, dict):
+            value = other
+        else:
+            return False
+        for k, v in self._data.items():
+            if k not in other._data or not np.array_equal(v, other._data[k]):
+                return False
+        return True
+
+
+    def iterrows(self):
+        """Iterate over the rows of the array dictionary.
+
+        Returns:
+            Iterator[dict]: An iterator that yields dictionaries representing each row.
+        """
+        for i in range(len(next(iter(self._data.values())))):
+            yield self[i]
+
+    def __repr__(self) -> str:
+        return f"<ArrayDict: {' '.join(self._data.keys())}>"
+
+    __str__ = __repr__
+
+    def concat(self, other: "ArrayDict") -> "ArrayDict":
+        """Concatenate two ArrayDict objects along the first axis.
+
+        Args:
+            other (ArrayDict): The other ArrayDict to concatenate with.
+
+        Returns:
+            ArrayDict: A new ArrayDict containing the concatenated data.
+        """
+        for key in self._data.keys():
+            self[key] = np.concatenate((self[key], other[key]), axis=0)
+        return self

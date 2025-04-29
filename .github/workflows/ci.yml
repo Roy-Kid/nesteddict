@@ -24,7 +24,7 @@ jobs:
       run: pip install ".[dev]"
 
     - name: Run tests with coverage & benchmarks
-      run: pytest --cov=src/nesteddict --cov-report=xml --benchmark-json benchmark_result.json --doctest-modules
+      run: pytest --cov=src/NestDict --cov-report=xml --benchmark-json benchmark_result.json --doctest-modules
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4

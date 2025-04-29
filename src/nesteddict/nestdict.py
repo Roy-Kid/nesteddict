@@ -1,42 +1,40 @@
 import operator
 from functools import reduce
-from typing import MutableMapping, Any, Iterator
-from collections.abc import Iterable
+from typing import MutableMapping, Any, Iterator, Callable, Sequence, Union
+import numpy as np
+from .arraydict import ArrayDict
 
 NestedKey = str | list[str]  # type_check_only
+dictlike = Union[dict, "NestDict"]
+
+from collections.abc import MutableMapping
 
 
-class NestedDictBase(dict): ...
+class NestDict(MutableMapping):
 
-
-class NestedDict(NestedDictBase):
-
-    def __init__(self, source: dict | None = None):
-        """Initializes a NestedDict with or without a source dictionary.
+    def __init__(self, source: dict = {}):
+        """Initializes a NestDict with or without a source dictionary.
 
         Args:
-            source (dict | None, optional): Source dictionary. Defaults to None.
+            source (dict, optional): Source dictionary. Defaults to None.
 
         Raises:
             TypeError: source must be a dict
 
         Examples:
 
-        >>> nd = NestedDict()
+        >>> nd = NestDict()
         >>> len(nd)
         0
-        >>> NestedDict({"a": 1, "b": 2}).keys()
+        >>> NestDict({"a": 1, "b": 2}).keys()
         dict_keys(['a', 'b'])
-        >>> nd = NestedDict({'a': {'b': {'c': 1}}})
+        >>> nd = NestDict({'a': {'b': {'c': 1}}})
         >>> nd[['a', 'b', 'c']]
         1
         >>> nd.get('a.b.c')
         1
         """
-        if source and not isinstance(source, dict):
-            raise TypeError(f"source must be a dict, not {type(source)}")
-
-        self._data = source or {}
+        super().__setattr__("_data", dict(source))
 
     @classmethod
     def _construct(cls, data, nested_key: NestedKey):
@@ -53,7 +51,7 @@ class NestedDict(NestedDictBase):
             key = nested_key[0]
             if key not in data:
                 data[key] = cls()
-            return NestedDict._construct(data[key], nested_key[1:])
+            return NestDict._construct(data[key], nested_key[1:])
 
     def _traverse(self, nested_key: NestedKey, construct: bool = False) -> Any:
         """Traverses a nested path in a dictionary.
@@ -91,7 +89,7 @@ class NestedDict(NestedDictBase):
             dict: a python dict with a flat structure.
 
         Examples:
-            >>> NestedDict({'a': {'b': {'c': 1}}}).flatten()
+            >>> NestDict({'a': {'b': {'c': 1}}}).flatten()
             {('a', 'b', 'c'): 1}
         """
 
@@ -138,7 +136,7 @@ class NestedDict(NestedDictBase):
             Any: The value at the end of the nested path.
 
         Examples:
-            >>> nd = NestedDict({'a': {'b': {'c': 1}}})
+            >>> nd = NestDict({'a': {'b': {'c': 1}}})
             >>> nd.get('a.b.c')
             1
 
@@ -174,7 +172,7 @@ class NestedDict(NestedDictBase):
             sep (str, optional): Defaults to '.'.
 
         Examples:
-            >>> nd = NestedDict()
+            >>> nd = NestDict()
             >>> nd.set('a.b.c', 1)
             >>> nd['a']['b']['c']
             1
@@ -208,3 +206,71 @@ class NestedDict(NestedDictBase):
 
     def update(self, other: dict):
         self._data.update(other)
+
+    def concat(self, others: dictlike|Sequence[dictlike], fallback: dict[type, Callable] = {}):
+        """Concatenate two dictionaries with compatible types."""
+        # if not iterable(others), make it a list
+        if not isinstance(others, Sequence):
+            others = [others]
+
+        for other in others:
+            for k, v in other.items():
+                if k not in self._data:
+                    raise KeyError(f"Key '{k}' not in self._data.")
+
+                current = self._data[k]
+
+                # Handle nested NestDict
+                if isinstance(current, NestDict) and isinstance(v, NestDict):
+                    current.concat(v)
+
+                # Handle nested dicts (but not NestDict)
+                elif isinstance(current, dict) and isinstance(v, dict):
+                    self._data[k].update(v)
+
+                # Handle lists
+                elif isinstance(v, list):
+                    if not isinstance(current, list):
+                        current = [current]
+                    self._data[k] = current + v
+
+                # Handle numpy arrays
+                elif isinstance(v, np.ndarray):
+                    if not isinstance(current, np.ndarray):
+                        current = np.array(current)
+                    self._data[k] = np.concatenate((current, v))
+
+                elif isinstance(v, ArrayDict):
+                    self._data[k].concat(v)
+
+                # Scalar fallback
+                else:
+                    self._data[k] = fallback[type(current)](current, v)
+        return self
+
+    def __add__(self, other: dictlike) -> "NestDict":
+        """Concatenate two dictionaries with compatible types."""
+        if not isinstance(other, dictlike):
+            raise TypeError(f"Cannot concatenate `{type(other)}` to NestDict.")
+        result = self.copy()
+        result.concat(other)
+        return result
+
+    def __copy__(self) -> "NestDict":
+        """Return a shallow copy of the NestDict."""
+        return NestDict({k: v for k, v in self._data.items()})
+            
+            
+def concat(nds: Sequence[dictlike]):
+    """Concatenate a list of dictionaries or NestDicts.
+
+    Args:
+        nds (Sequence[dictlike]): A sequence of dictionaries or NestDicts to concatenate.
+
+    Returns:
+        NestDict: A new NestDict containing the concatenated data.
+    """
+    result = nds[0].copy()
+    for nd in nds[1:]:
+        result.concat(nd)
+    return result
