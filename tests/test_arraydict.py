@@ -11,35 +11,27 @@ class TestNumpy:
     def test_init_(self):
 
         atoms =  ArrayDict({
-            "id": np.array([1, 2, 3]),
-            "type": np.array(["C1", "C2", "C3"]),
-            "xyz": np.random.rand(3, 3),
+            "scalar": np.array([1, 2, 3]),
+            "vectorial": np.random.rand(3, 3),
+            "tensorial": np.random.rand(3, 3, 3),
         })
-        # bonds = ArrayDict({
-        #     "connectivity": np.array([[0, 1], [1, 2]]),
-        #     "type": np.array(["bond1", "bond2"]),
-        # })
-        # angles = ArrayDict({
-        #     "connectivity": np.array([[0, 1, 2]]),
-        #     "type": np.array(["angle1"]),
-        # })
         return atoms
     
     def test_getitem(self, ad):
         """
         Test the __getitem__ method of NestDict.
         """
-        assert np.array_equal(ad["id"], np.array([1, 2, 3]))
-        assert set(ad[["type", "xyz"]].keys()) == {"type", "xyz"}
+        assert np.array_equal(ad["scalar"], np.array([1, 2, 3]))
+        assert set(ad[["scalar", "vectorial"]].keys()) == {"scalar", "vectorial"}
         assert ad[1] == {
-            "id": [2],
-            "type": ["C2"],
-            "xyz": ad["xyz"][1].reshape(1, -1),
+            "scalar": [2],
+            "vectorial": ad["vectorial"][1],
+            "tensorial": ad["tensorial"][1],
         }
         assert ad[0:2] == {
-            "id": np.array([1, 2]),
-            "type": np.array(["C1", "C2"]),
-            "xyz": ad["xyz"][0:2],
+            "scalar": np.array([1, 2]),
+            "vectorial": ad["vectorial"][0:2],
+            "tensorial": ad["tensorial"][0:2],
         }
 
     def test_setitem(self, ad):
@@ -47,36 +39,50 @@ class TestNumpy:
         Test the __setitem__ method of NestDict.
         """
         # Set a single item
-        ad["id"] = np.array([4, 5, 6])
-        assert np.array_equal(ad["id"], np.array([4, 5, 6]))
+        ad["scalar"] = np.array([4, 5, 6])
+        assert np.array_equal(ad["scalar"], np.array([4, 5, 6]))
 
         # Set multiple items
-        ad[["type", "xyz"]] = ArrayDict({
-            "type": np.array(["C4", "C5", "C6"]),
-            "xyz": np.random.rand(3, 3),
+        ad[["scalar", "vectorial"]] = ArrayDict({
+            "scalar": np.array([4, 5, 6]),
+            "vectorial": np.random.rand(3, 3),
+            "tensorial": np.random.rand(3, 3, 3),
         })
-        assert set(ad.keys()) == {"id", "type", "xyz"}
-        assert np.array_equal(ad["type"], np.array(["C4", "C5", "C6"]))
+        assert set(ad.keys()) == {"scalar", "vectorial", "tensorial"}
+        assert np.array_equal(ad["scalar"], np.array([4, 5, 6]))
 
         # Set a slice
         ad[0:2] = ArrayDict({
-            "id": np.array([7, 8]),
-            "type": np.array(["C7", "C8"]),
-            "xyz": np.random.rand(2, 3),
+            "scalar": np.array([7, 8]),
+            "vectorial": np.random.rand(2, 3),
+            "tensorial": np.random.rand(2, 3, 3),
         })
-        assert np.array_equal(ad["id"][0:2], np.array([7, 8]))
-        assert np.array_equal(ad["type"][0:2], np.array(["C7", "C8"]))
-        assert np.array_equal(ad["xyz"][0:2], ad["xyz"][0:2])
+        assert np.array_equal(ad["scalar"][0:2], np.array([7, 8]))
+        assert np.array_equal(ad["vectorial"][0:2], ad["vectorial"][0:2])
 
-    def test_getitem_invalid(self, ad):
+        with pytest.raises(ValueError):
+            ad[0: 2] = ArrayDict({
+                "scalar": np.array([4, 5, 6]),
+                "vectorial": np.random.rand(3, 3),
+                "tensorial": np.random.rand(3, 3, 3),
+            })
+
+        with pytest.raises(KeyError):
+            ad[0: 2] = ArrayDict({
+                "scalar": np.array([4, 5]),
+                "tensorial": np.random.rand(3, 3),
+            })
+        
+
+    def test_getitem_invalscalar(self, ad):
         """
-        Test the __setitem__ method of NestDict with invalid input.
+        Test the __setitem__ method of NestDict with invalscalar input.
         """
         with pytest.raises(KeyError):
-            ad["invalid_key"]
+            ad["invalscalar_key"]
 
         with pytest.raises(KeyError):
-            ad[["invalid_key"]]
+            ad[["invalscalar_key"]]
 
     def test_iterrows(self, ad):
         """
@@ -85,5 +91,19 @@ class TestNumpy:
         # Iterate over rows
         for i, row in enumerate(ad.iterrows()):
             assert isinstance(row, ArrayDict)
-            assert "id" in row
-            assert np.array_equal(row["xyz"], ad["xyz"][i].reshape(1, -1))
+            assert "scalar" in row
+            assert row["vectorial"].shape == ad["vectorial"][i].shape
+
+    def test_from_dicts(self):
+        """
+        Test the from_dicts method of ArrayDict.
+        """
+        dicts = [
+            {"scalar": 1, "vectorial": np.random.rand(3)},
+            {"scalar": 2, "vectorial": np.random.rand(3)},
+            {"scalar": 3, "vectorial": np.random.rand(3)},
+        ]
+        ad = ArrayDict.from_dicts(dicts)
+        assert len(ad) == 2
+        assert set(ad.keys()) == {"scalar", "vectorial"}
+

@@ -26,11 +26,22 @@ class ArrayDict(MutableMapping):
 
     def __init__(self, source: dict = {}):
         source = {k: np.atleast_1d(v) for k, v in source.items()}
-        if not _check_array_length(list(source.values())):
-            raise ValueError(
-                "All arrays must have the same length. Please check your input data."
-            )
         super().__setattr__("_data", source)
+
+    @classmethod
+    def from_dicts(cls, source: list[dict]) -> "ArrayDict":
+        """Create an ArrayDict from a list of dictionaries.
+
+        Args:
+            source (list[dict]): A list of dictionaries where each dictionary represents a row.
+
+        Returns:
+            ArrayDict: An ArrayDict where keys are the dictionary keys and values are arrays of the corresponding values.
+        """
+
+        keys = source[0].keys()
+        data = {key: np.array([row[key] for row in source]) for key in keys}
+        return cls(data)
 
     def __getitem__(self, key: str | list[str] | slice) -> Union[np.ndarray, "ArrayDict"]:
         if isinstance(key, str):
@@ -38,8 +49,6 @@ class ArrayDict(MutableMapping):
         elif isinstance(key, list):
             return ArrayDict({k: self._data[k] for k in key})
         elif isinstance(key, (slice, int, np.ndarray)):
-            if isinstance(key, int):
-                key = slice(key, key + 1)
             return ArrayDict({k: v[key] for k, v in self._data.items()})
         raise KeyError(f"Key {key} not support in ArrayDict")
 
@@ -82,11 +91,20 @@ class ArrayDict(MutableMapping):
             value = other
         else:
             return False
-        for k, v in self._data.items():
-            if k not in other._data or not np.array_equal(v, other._data[k]):
-                return False
-        return True
+        return self._data.keys() == value.keys() and all([
+            np.allclose(self[k], value[k]) for k in self._data.keys()
+        ])
 
+    @property
+    def array_length(self) -> int:
+        """Get the length of the arrays in the ArrayDict.
+
+        Returns:
+            int: The length of the arrays.
+        """
+        if not self._data:
+            return 0
+        return len(next(iter(self._data.values())))
 
     def iterrows(self):
         """Iterate over the rows of the array dictionary.
@@ -94,7 +112,7 @@ class ArrayDict(MutableMapping):
         Returns:
             Iterator[dict]: An iterator that yields dictionaries representing each row.
         """
-        for i in range(len(next(iter(self._data.values())))):
+        for i in range(self.array_length):
             yield self[i]
 
     def __repr__(self) -> str:

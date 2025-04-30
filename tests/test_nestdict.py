@@ -214,3 +214,11 @@ class TestNestDict:
         c = {'x': [4, 5]}
         a.concat([b, c])
         assert a._data['x'] == [1, 2, 3, 4, 5]
+
+    def test_nested(self):
+
+        a = NestDict({'x': {'y': 1}})
+        
+        assert isinstance(a['x'], dict)
+        assert a[['x', 'y']] == 1
+        assert a['x', 'y'] == 1
