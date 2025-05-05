@@ -1,10 +1,12 @@
 from typing import MutableMapping, Any, Iterator, Union
 import numpy as np
 import numpy.typing as npt
+import io
 
 NestedKey = str | list[str]  # type_check_only
 
 from collections.abc import MutableMapping
+import csv
 
 # check if all arrays have same length
 def _check_array_length(arrays: list[np.ndarray]) -> bool:
@@ -42,6 +44,41 @@ class ArrayDict(MutableMapping):
         keys = source[0].keys()
         data = {key: np.array([row[key] for row in source]) for key in keys}
         return cls(data)
+    
+    @classmethod
+    def from_csv(
+        cls,
+        source: str | list[str] | io.StringIO,
+        header: list[str] | None = None,
+        seq: str = ",",
+        **kwargs
+    ) -> "ArrayDict":
+        """Create an ArrayDict from a CSV file or CSV data with optional custom header and delimiter.
+
+        Args:
+            source (str|list[str]|io.StringIO): If str, path to the CSV file; if list of strings, CSV lines; if StringIO, CSV data.
+            header (list[str]|None): Optional list of header fields.
+            seq (str): Delimiter for CSV data.
+
+        Returns:
+            ArrayDict: An ArrayDict where keys are headers and values are arrays of the corresponding values.
+        """
+        if isinstance(source, str):
+            with open(source, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f, fieldnames=header, delimiter=seq, **kwargs)
+                rows = [dict(row) for row in reader]
+        elif isinstance(source, list):
+            buffer = io.StringIO("\n".join(source))
+            reader = csv.DictReader(buffer, fieldnames=header, delimiter=seq, **kwargs)
+            rows = [dict(row) for row in reader]
+        elif isinstance(source, io.StringIO):
+            reader = csv.DictReader(source, fieldnames=header, delimiter=seq, **kwargs)
+            rows = [dict(row) for row in reader]
+        else:
+            raise TypeError("Unsupported source type.")
+        
+        return cls.from_dicts(rows)
+
 
     def __getitem__(self, key: str | list[str] | slice) -> Union[np.ndarray, "ArrayDict"]:
         if isinstance(key, str):
