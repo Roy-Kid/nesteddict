@@ -1,6 +1,11 @@
 import pytest
 import numpy as np
 from nesteddict import ArrayDict
+import io
+try:
+    import h5py
+except ImportError:
+    h5py = None
 
 class TestNumpy:
     """
@@ -107,3 +112,16 @@ class TestNumpy:
         assert len(ad) == 2
         assert set(ad.keys()) == {"scalar", "vectorial"}
 
+    @pytest.mark.skipif(h5py is None, reason="h5py is not installed")
+    def test_to_hdf5(self, ad):
+        """
+        Test the to_hdf5 method of ArrayDict.
+        """
+        buffer = io.BytesIO()
+        with h5py.File(buffer, "w") as f:
+            ad.to_hdf5(f)
+
+        with h5py.File(buffer, "r") as f:
+            assert f["scalar"].shape == ad["scalar"].shape
+            assert f["vectorial"].shape == ad["vectorial"].shape
+            assert f["tensorial"].shape == ad["tensorial"].shape

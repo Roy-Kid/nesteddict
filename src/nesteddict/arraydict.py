@@ -7,6 +7,10 @@ NestedKey = str | list[str]  # type_check_only
 
 from collections.abc import MutableMapping
 import csv
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import h5py
 
 # check if all arrays have same length
 def _check_array_length(arrays: list[np.ndarray]) -> bool:
@@ -169,3 +173,14 @@ class ArrayDict(MutableMapping):
         for key in self._data.keys():
             self[key] = np.concatenate((self[key], other[key]), axis=0)
         return self
+
+    def to_hdf5(self, h5file: "h5py.File") -> "h5py.File":
+        """Convert the ArrayDict to an HDF5 file.
+
+        Returns:
+            h5py.File: An HDF5 file containing the data from the ArrayDict.
+        """
+
+        for key, value in self._data.items():
+            h5file.create_dataset(key, data=value)
+        return h5file
