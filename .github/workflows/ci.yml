@@ -21,7 +21,10 @@ jobs:
         python-version: '3.10'
 
     - name: Install dependencies
-      run: pip install ".[dev]"
+      run: |
+        pip install -e .[dev] 
+        pip install pytest pytest-benchmark pytest-cov
+        pip install pyarrow h5py
 
     - name: Run tests with coverage & benchmarks
       run: pytest --cov=src/NestDict --cov-report=xml --benchmark-json benchmark_result.json --doctest-modules
