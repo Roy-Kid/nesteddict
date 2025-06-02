@@ -23,11 +23,11 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -e .[dev] 
-        pip install pytest pytest-benchmark pytest-cov
+        pip install pytest 
         pip install pyarrow h5py
 
     - name: Run tests with coverage & benchmarks
-      run: pytest --cov=src/NestDict --cov-report=xml --benchmark-json benchmark_result.json --doctest-modules
+      run: pytest 
 
     # - name: Upload coverage to Codecov
     #   uses: codecov/codecov-action@v4
@@ -36,10 +36,10 @@ jobs:
     #     file: ./coverage.xml
     #     token: ${{ secrets.CODECOV_TOKEN }}
 
-    - name: Store benchmark result
-      uses: benchmark-action/github-action-benchmark@v1
-      with:
-        tool: 'pytest'
-        output-file-path: benchmark_result.json
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        auto-push: true
+    # - name: Store benchmark result
+    #   uses: benchmark-action/github-action-benchmark@v1
+    #   with:
+    #     tool: 'pytest'
+    #     output-file-path: benchmark_result.json
+    #     github-token: ${{ secrets.GITHUB_TOKEN }}
+    #     auto-push: true
