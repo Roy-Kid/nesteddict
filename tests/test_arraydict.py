@@ -107,3 +107,29 @@ class TestNumpy:
         assert len(ad) == 2
         assert set(ad.keys()) == {"scalar", "vectorial"}
 
+    def test_to_hdf5(self, ad, tmp_path):
+        """
+        Test the to_hdf5 method of ArrayDict.
+        """
+        h5py_path = tmp_path / "test.h5"
+        ad.to_hdf5(h5py_path)
+        
+        import h5py
+        with h5py.File(h5py_path, "r") as f:
+            assert "scalar" in f
+            assert "vectorial" in f
+            assert np.array_equal(f["scalar"][:], ad["scalar"])
+            assert np.array_equal(f["vectorial"][:], ad["vectorial"])
+
+    def test_to_hdf5_in_bytes(self, ad):
+        """
+        Test the to_hdf5_bytes method of ArrayDict.
+        """
+        h5py_bytes = ad.to_hdf5(path=None)
+        
+        import h5py
+        with h5py.File(h5py_bytes, "r") as f:
+            assert "scalar" in f
+            assert "vectorial" in f
+            assert np.array_equal(f["scalar"][:], ad["scalar"])
+            assert np.array_equal(f["vectorial"][:], ad["vectorial"])

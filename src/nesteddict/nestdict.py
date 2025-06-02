@@ -1,6 +1,6 @@
 import operator
 from functools import reduce
-from typing import MutableMapping, Any, Iterator, Callable, Sequence, Union
+from typing import Any, Iterator, Callable, Sequence, Union
 import numpy as np
 from .arraydict import ArrayDict
 

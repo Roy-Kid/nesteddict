@@ -1,25 +1,18 @@
-from typing import MutableMapping, Any, Iterator, Union
+from collections import namedtuple
+from typing import MutableMapping, Any, Iterator, Union, overload
 import numpy as np
-import numpy.typing as npt
 import io
+from typing import TYPE_CHECKING
+from pathlib import Path
+
+if TYPE_CHECKING:
+    import h5py  # type: ignore[import]
+    import pyarray as pa  # type: ignore[import]
 
 NestedKey = str | list[str]  # type_check_only
 
 from collections.abc import MutableMapping
 import csv
-
-# check if all arrays have same length
-def _check_array_length(arrays: list[np.ndarray]) -> bool:
-    """Check if all arrays have the same length.
-
-    Args:
-        arrays (list[np.ndarray]): List of numpy arrays to check.
-
-    Returns:
-        bool: True if all arrays have the same length, False otherwise.
-    """
-    lengths = [len(arr) for arr in arrays]
-    return len(set(lengths)) < 2
 
 class ArrayDict(MutableMapping):
     """A dictionary-like object that stores arrays."""
@@ -27,11 +20,11 @@ class ArrayDict(MutableMapping):
     _data: dict[str, np.ndarray]
 
     def __init__(self, source: dict = {}):
-        source = {k: np.atleast_1d(v) for k, v in source.items()}
+        source = {k: np.array(v) for k, v in source.items()}
         super().__setattr__("_data", source)
 
     @classmethod
-    def from_dicts(cls, source: list[dict]) -> "ArrayDict":
+    def from_dicts(cls, source: list[dict], include: list[str]|None = []) -> "ArrayDict":
         """Create an ArrayDict from a list of dictionaries.
 
         Args:
@@ -41,7 +34,9 @@ class ArrayDict(MutableMapping):
             ArrayDict: An ArrayDict where keys are the dictionary keys and values are arrays of the corresponding values.
         """
 
-        keys = source[0].keys()
+        keys = set(source[0].keys())
+        if include:
+            keys = keys & set(include)
         data = {key: np.array([row[key] for row in source]) for key in keys}
         return cls(data)
     
@@ -79,15 +74,29 @@ class ArrayDict(MutableMapping):
         
         return cls.from_dicts(rows)
 
+    @overload
+    def __getitem__(self, key: str) -> np.ndarray: ...
+    
+    @overload
+    def __getitem__(self, key: list[str]) -> "ArrayDict": ...
+    
+    @overload
+    def __getitem__(self, key: slice) -> "ArrayDict": ...
+    
+    @overload
+    def __getitem__(self, key: int) -> "ArrayDict": ...
+    
+    @overload
+    def __getitem__(self, key: np.ndarray) -> "ArrayDict": ...
 
-    def __getitem__(self, key: str | list[str] | slice) -> Union[np.ndarray, "ArrayDict"]:
+    def __getitem__(self, key: Union[str, list[str], slice, int, np.ndarray]) -> Union[np.ndarray, "ArrayDict"]:
         if isinstance(key, str):
             return self._data[key]
         elif isinstance(key, list):
             return ArrayDict({k: self._data[k] for k in key})
         elif isinstance(key, (slice, int, np.ndarray)):
             return ArrayDict({k: v[key] for k, v in self._data.items()})
-        raise KeyError(f"Key {key} not support in ArrayDict")
+        raise KeyError(f"Key {key} not supported in ArrayDict")
 
     def __setitem__(
         self, key: str | list[str], value: Union[np.ndarray, "ArrayDict"]
@@ -143,14 +152,28 @@ class ArrayDict(MutableMapping):
             return 0
         return len(next(iter(self._data.values())))
 
-    def iterrows(self):
+    def itertuples(self):
         """Iterate over the rows of the array dictionary.
 
         Returns:
             Iterator[dict]: An iterator that yields dictionaries representing each row.
         """
+        row = namedtuple("Row", self.keys())
+        for i in range(self.array_length):
+            yield row(*[self[k][i] for k in self.keys()])
+
+    def iterrows(self):
         for i in range(self.array_length):
             yield self[i]
+
+    def iterarrays(self):
+        """Iterate over the arrays in the array dictionary.
+
+        Returns:
+            Iterator[tuple]: An iterator that yields tuples of the form (key, array).
+        """
+        for i in zip(*self.values()):
+            yield i
 
     def __repr__(self) -> str:
         return f"<ArrayDict: {' '.join(self._data.keys())}>"
@@ -169,3 +192,49 @@ class ArrayDict(MutableMapping):
         for key in self._data.keys():
             self[key] = np.concatenate((self[key], other[key]), axis=0)
         return self
+    
+    def to_dict(self, include: list[str] | None = None, exclude: list[str] | None = None) -> dict[str, np.ndarray]:
+
+        return {
+            k: v for k, v in self._data.items()
+            if (include is None or k in include) and (exclude is None or k not in exclude)
+        }
+    
+    def to_hdf5(self, path: Path | None = None, include: list[str] | None = None, exclude: list[str] | None = None) -> Path | io.BytesIO:
+        """Save the ArrayDict to an HDF5 file.
+
+        Args:
+            path (str|Path): The path to the HDF5 file.
+            include (list[str]|None): Optional list of keys to include.
+            exclude (list[str]|None): Optional list of keys to exclude.
+        """
+        import h5py
+        data = self.to_dict(include=include, exclude=exclude)
+        if path is None:
+            _path = io.BytesIO()
+        else:
+            _path = Path(path)
+
+        with h5py.File(_path, 'w') as f:
+            for key, value in data.items():
+                if isinstance(value, np.ndarray):
+                    f.create_dataset(key, data=value)
+                else:
+                    f.create_dataset(key, data=np.array(value))
+
+        return _path
+
+
+    def to_arrow(self, include: list[str] | None = None, exclude: list[str] | None = None) -> "pa.Table":
+        """Convert the ArrayDict to a PyArrow Table.
+
+        Args:
+            include (list[str]|None): Optional list of keys to include.
+            exclude (list[str]|None): Optional list of keys to exclude.
+
+        Returns:
+            pa.Table: A PyArrow Table containing the data.
+        """
+        import pyarrow as pa
+        data = self.to_dict(include=include, exclude=exclude)
+        return pa.Table.from_pydict(data) 
