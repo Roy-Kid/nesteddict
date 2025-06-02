@@ -1,6 +1,11 @@
 import pytest
 import numpy as np
 from nesteddict import ArrayDict
+import io
+try:
+    import h5py
+except ImportError:
+    h5py = None
 
 class TestNumpy:
     """

@@ -13,6 +13,10 @@ NestedKey = str | list[str]  # type_check_only
 
 from collections.abc import MutableMapping
 import csv
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import h5py
 
 class ArrayDict(MutableMapping):
     """A dictionary-like object that stores arrays."""
@@ -217,11 +221,7 @@ class ArrayDict(MutableMapping):
 
         with h5py.File(_path, 'w') as f:
             for key, value in data.items():
-                if isinstance(value, np.ndarray):
-                    f.create_dataset(key, data=value)
-                else:
-                    f.create_dataset(key, data=np.array(value))
-
+                f.create_dataset(key, data=value)
         return _path
 
 

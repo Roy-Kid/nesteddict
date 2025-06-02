@@ -259,6 +259,25 @@ class NestDict(MutableMapping):
     def __copy__(self) -> "NestDict":
         """Return a shallow copy of the NestDict."""
         return NestDict({k: v for k, v in self._data.items()})
+    
+    def to_hdf5(self, h5file):
+        """Save the NestDict to an HDF5 file.
+
+        Args:
+            h5file (h5py.File): The HDF5 file to save to.
+        """
+        def _to_hdf5(data, h5group):
+            for k, v in data.items():
+                if hasattr(v, "to_hdf5"):
+                    group = h5group.create_group(str(k))
+                    v.to_hdf5(group)
+                elif isinstance(v, dict):
+                    group = h5group.create_group(str(k))
+                    _to_hdf5(v, group)
+                else:
+                    h5group.create_dataset(str(k), data=v)
+        _to_hdf5(self._data, h5file)
+        return h5file
             
             
 def concat(nds: Sequence[dictlike]):

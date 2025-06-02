@@ -1,7 +1,11 @@
 import pytest
 import numpy as np
 from nesteddict import NestDict
-
+import io
+try:
+    import h5py
+except ImportError:
+    h5py = None
 
 class TestNestDict:
 
@@ -221,4 +225,21 @@ class TestNestDict:
         
         assert isinstance(a['x'], dict)
         assert a[['x', 'y']] == 1
-        assert a['x', 'y'] == 1
+        with pytest.raises(KeyError):
+            # not allowed to use tuple
+            # since tuple usually used as key
+            assert a['x', 'y'] == 1 
+
+    def test_to_h5py(self, nd):
+
+        import h5py
+
+        buffer = io.BytesIO()
+        with h5py.File(buffer, "w") as f:
+            nd.to_hdf5(f)
+
+        with h5py.File(buffer, "r") as f:
+            assert f["a1"][()] == 1
+            assert f["a2/b1"][()]== 2
+            assert f["a2/b2/c1"][()] == 3
+            assert f["a2/b2/c2/d1"][()] == 4
