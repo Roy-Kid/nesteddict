@@ -1,9 +1,10 @@
-from collections import namedtuple
-from typing import MutableMapping, Any, Iterator, Union, overload
-import numpy as np
 import io
-from typing import TYPE_CHECKING
+from collections import namedtuple
 from pathlib import Path
+from typing import (TYPE_CHECKING, Any, Iterator, MutableMapping, Union,
+                    overload)
+
+import numpy as np
 
 if TYPE_CHECKING:
     import h5py  # type: ignore[import]
@@ -11,8 +12,8 @@ if TYPE_CHECKING:
 
 NestedKey = str | list[str]  # type_check_only
 
-from collections.abc import MutableMapping
 import csv
+from collections.abc import MutableMapping
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

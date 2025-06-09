@@ -172,50 +172,44 @@ class TestNestDict:
 
     def test_concat_lists(self):
         a = NestDict({'x': [1, 2]})
-        b = {'x': [3, 4]}
+        b = NestDict({'x': [3, 4]})
         a.concat(b)
         assert a._data['x'] == [1, 2, 3, 4]
 
-    def test_concat_scalar_to_list(self):
-        a = NestDict({'x': 1})
-        b = {'x': [2, 3]}
-        a.concat(b)
-        assert a._data['x'] == [1, 2, 3]
-
     def test_concat_numpy_arrays(self):
         a = NestDict({'x': np.array([1, 2])})
-        b = {'x': np.array([3, 4])}
+        b = NestDict({'x': np.array([3, 4])})
         a.concat(b)
         np.testing.assert_array_equal(a._data['x'], np.array([1, 2, 3, 4]))
 
     def test_concat_nested_dict(self):
         a = NestDict({'x': {'a': 1}})
-        b = {'x': {'b': 2}}
+        b = NestDict({'x': {'b': 2}})
         a.concat(b)
         assert a._data['x'] == {'a': 1, 'b': 2}
 
     def test_concat_nested_nestdict(self):
         a = NestDict({'x': NestDict({'a': [1]})})
-        b = {'x': NestDict({'a': [2, 3]})}
+        b = NestDict({'x': NestDict({'a': [2, 3]})})
         a.concat(b)
         assert a._data['x']._data['a'] == [1, 2, 3]
 
     def test_missing_key_raises(self):
-        a = NestDict({'x': 1})
-        b = {'y': 2}
+        a = NestDict({'x': [1]})
+        b = NestDict({'y': [2]})
         with pytest.raises(KeyError):
             a.concat(b)
 
     def test_incompatible_type_raises(self):
-        a = NestDict({'x': 1})
-        b = {'x': {'a': 1}}
-        a.concat(b, {int: lambda x, y: [x, y['a']]})
+        a = NestDict({'x': [1]})
+        b = NestDict({'x': {'a': [1]}})
+        a.concat(b, {dict: lambda x, y: x + y['a']})
         assert a['x'] == [1, 1]
 
     def test_multiple_concat(self):
-        a = NestDict({'x': 1})
-        b = {'x': [2, 3]}
-        c = {'x': [4, 5]}
+        a = NestDict({'x': [1]})
+        b = NestDict({'x': [2, 3]})
+        c = NestDict({'x': [4, 5]})
         a.concat([b, c])
         assert a._data['x'] == [1, 2, 3, 4, 5]
 

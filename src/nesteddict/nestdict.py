@@ -207,45 +207,47 @@ class NestDict(MutableMapping):
     def update(self, other: dict):
         self._data.update(other)
 
-    def concat(self, others: dictlike|Sequence[dictlike], fallback: dict[type, Callable] = {}):
+    def concat(self, others: Sequence["NestDict"], fallback: dict[type, Callable] = {}):
         """Concatenate two dictionaries with compatible types."""
-        # if not iterable(others), make it a list
         if not isinstance(others, Sequence):
             others = [others]
+        if not all(isinstance(other, NestDict) for other in others):
+            raise TypeError(f"Cannot concatenate `{type(others)}` to NestDict.")
 
         for other in others:
             for k, v in other.items():
                 if k not in self._data:
-                    raise KeyError(f"Key '{k}' not in self._data.")
+                    raise KeyError(f"Key '{k}' not in self")
 
-                current = self._data[k]
+                this = self._data[k]
 
-                # Handle nested NestDict
-                if isinstance(current, NestDict) and isinstance(v, NestDict):
-                    current.concat(v)
+                if type(this) is not type(v):
+                    # try:
+                    #     self._data[k] = fallback[type(this)](this, v)
+                    # except:
+                    #     raise TypeError(
+                    #         f"Type mismatch for key '{k}': "
+                    #         f"expected {type(this)}, got {type(v)}"
+                    #     )
+                    self._data[k] = fallback[type(v)](this, v)
 
-                # Handle nested dicts (but not NestDict)
-                elif isinstance(current, dict) and isinstance(v, dict):
+                elif isinstance(this, NestDict):
+                    this.concat(v)
+
+                elif isinstance(this, dict):
                     self._data[k].update(v)
 
-                # Handle lists
                 elif isinstance(v, list):
-                    if not isinstance(current, list):
-                        current = [current]
-                    self._data[k] = current + v
+                    self._data[k] = this + v
 
-                # Handle numpy arrays
                 elif isinstance(v, np.ndarray):
-                    if not isinstance(current, np.ndarray):
-                        current = np.array(current)
-                    self._data[k] = np.concatenate((current, v))
+                    self._data[k] = np.concatenate((this, v))
 
                 elif isinstance(v, ArrayDict):
                     self._data[k].concat(v)
 
-                # Scalar fallback
                 else:
-                    self._data[k] = fallback[type(current)](current, v)
+                    self._data[k] = fallback[type(this)](this, v)
         return self
 
     def __add__(self, other: dictlike) -> "NestDict":

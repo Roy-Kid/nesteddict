@@ -1,6 +1,6 @@
 [project]
 name = "nestict"
-version = "0.1.0"
+version = "0.1.1"
 description = "A pure Python nested dict container"
 authors = [
     { name = "Roy Kid", email = "lijichen365@gmail.com" }
